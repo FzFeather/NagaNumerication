@@ -1,2 +1,2 @@
 # NagaNumerication
-Plugin provide numerical information for laga
+Tampermonkey Plugin provide numerical information for NAGA
