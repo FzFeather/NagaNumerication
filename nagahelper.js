@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Naga Helper
 // @namespace    http://tampermonkey.net/
-// @version      2024-12-26
+// @version      2025-10-16
 // @description  Show NAGA numerical information
 // @author       You
 // @match        https://naga.dmv.nico/htmls/*
@@ -104,6 +104,61 @@
         }
         return indexes;
     }
+    function updateExtraInfoTable(){
+        let infoTable = document.getElementById('extraInfoTable');
+        if(!infoTable) return;
+        let selfActor = document.querySelectorAll('select')[0].value;
+        let model = document.querySelectorAll('select')[2].value;
+        infoTable.innerHTML="";
+        if(step >= pred[kyoku].length) return;
+        let detail = pred[kyoku][step];
+        let msgType = detail.info.msg.type;
+        if(msgType == "tsumo" || msgType=="chi" || msgType=="pon" || msgType=="ankan" || msgType=="kakan" || msgType=="daiminkan"){
+            if(detail.info.msg.actor != selfActor) return;
+            let sortedIndex = indexSort(detail.dahai_pred[model]);
+            for(let h of sortedIndex){
+                let predValue = detail.dahai_pred[model][h];
+                if(predValue == 0) break;
+                let tr = infoTable.insertRow(-1);
+                let haiTd = tr.insertCell(0);
+                haiTd.appendChild(document.createTextNode(haiT[h]));
+                let prefTd = tr.insertCell(1);
+                prefTd.style['text-align'] = "right";
+                prefTd.appendChild(document.createTextNode((predValue/100.0).toFixed(2)+"%"));
+            }
+        }else if(msgType == "dahai" && "huro" in detail){
+            let huro = detail.huro[selfActor];
+            if(!huro) return;
+            for(let h in huro[model]){
+                let predValue = huro[model][h];
+                if(predValue == 0) break;
+                let tr = infoTable.insertRow(-1);
+                let haiTd = tr.insertCell(0);
+                haiTd.appendChild(document.createTextNode(huroTranslate(h, detail.info.msg.pai)));
+                let prefTd = tr.insertCell(1);
+                prefTd.style['text-align'] = "right";
+                prefTd.appendChild(document.createTextNode((predValue*100.0).toFixed(2)+"%"));
+            }
+        }
+    }
+    app.addEventListener('wheel', function(event){
+        if(event.deltaY < 0){
+            if(step <= 0){
+                kyoku--;
+                step = pred[kyoku].length;
+            }else{
+                step--;
+            }
+        }else{
+            if(step >= pred[kyoku].length){
+                step = 0;
+                kyoku++;
+            }else{
+                step++;
+            }
+        }
+        updateExtraInfoTable();
+    });
     app.addEventListener('click', function(event){
         if(event.target.nodeName == "BUTTON"){
             let selfActor = document.querySelectorAll('select')[0].value;
@@ -177,39 +232,8 @@
                 default:
                     return;
             }
-            let infoTable = document.getElementById('extraInfoTable');
-            if(!infoTable) return;
-            infoTable.innerHTML="";
-            if(step >= pred[kyoku].length) return;
-            let detail = pred[kyoku][step];
-            let msgType = detail.info.msg.type;
-            if(msgType == "tsumo" || msgType=="chi" || msgType=="pon" || msgType=="ankan" || msgType=="kakan" || msgType=="daiminkan"){
-                if(detail.info.msg.actor != selfActor) return;
-                let sortedIndex = indexSort(detail.dahai_pred[model]);
-                for(let h of sortedIndex){
-                    let predValue = detail.dahai_pred[model][h];
-                    if(predValue == 0) break;
-                    let tr = infoTable.insertRow(-1);
-                    let haiTd = tr.insertCell(0);
-                    haiTd.appendChild(document.createTextNode(haiT[h]));
-                    let prefTd = tr.insertCell(1);
-                    prefTd.style['text-align'] = "right";
-                    prefTd.appendChild(document.createTextNode((predValue/100.0).toFixed(2)+"%"));
-                }
-            }else if(msgType == "dahai" && "huro" in detail){
-                let huro = detail.huro[selfActor];
-                if(!huro) return;
-                for(let h in huro[model]){
-                    let predValue = huro[model][h];
-                    if(predValue == 0) break;
-                    let tr = infoTable.insertRow(-1);
-                    let haiTd = tr.insertCell(0);
-                    haiTd.appendChild(document.createTextNode(huroTranslate(h, detail.info.msg.pai)));
-                    let prefTd = tr.insertCell(1);
-                    prefTd.style['text-align'] = "right";
-                    prefTd.appendChild(document.createTextNode((predValue*100.0).toFixed(2)+"%"));
-                }
-            }
+            updateExtraInfoTable();
         }
     });
+    app.addEventListener('input', function(){updateExtraInfoTable()})
 })();
