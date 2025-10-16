@@ -7,6 +7,7 @@
 // @match        https://naga.dmv.nico/htmls/*
 // @icon         https://naga.dmv.nico/static/img/naga.png
 // @grant        none
+// @require https://cdn.jsdelivr.net/gh/CoeJoder/waitForKeyElements.js@v1.3/waitForKeyElements.js
 // ==/UserScript==
 
 (function() {
@@ -28,10 +29,14 @@
     // const observer = new MutationObserver(callback);
     // const config = { attributes: false, childList: true, subtree: false };
     // observer.observe(app, config);
-    document.addEventListener('keyup', function(event){
-        if(event.key != 'S' && event.key != 's') return;
+    //window.addEventListener('DOMContentLoaded', function(event){
+    waitForKeyElements("script", function(event){
+        //if(event.key != 'S' && event.key != 's') return;
+        console.log("DOM fully loaded and parsed");
         var app = document.getElementById("app");
         let infoDiv = document.getElementById('extraInfoDiv');
+        console.log(app);
+        console.log(infoDiv);
         if(!infoDiv){
             infoDiv = document.createElement("div");
             infoDiv.style.display="none";
@@ -49,7 +54,7 @@
             app.style.width = "";
             infoDiv.style.display="none";
         }
-    });
+    }, false);
     function isSelf(detail, selfActor){
         let msgType = detail.info.msg.type;
         if(msgType=="tsumo" || msgType=="chi" || msgType=="pon" || msgType=="ankan" || msgType=="kakan" || msgType=="daiminkan"){
@@ -59,12 +64,62 @@
         }
         return false;
     }
-    function isDiff(detail, selfActor, model){
+    function isDiff(detail, selfActor, model, nextStepDetail){
+        if(detail.info.msg.actor != selfActor) return false;
         let msgType = detail.info.msg.type;
         if(msgType=="tsumo" || msgType=="chi" || msgType=="pon" || msgType=="ankan" || msgType=="kakan" || msgType=="daiminkan"){
-            return detail.info.msg.actor == selfActor && detail.info.msg.real_dahai != null && detail.info.msg.real_dahai != detail.info.msg.pred_dahai[model];
+            // Reach
+            if("reach" in detail){
+                let actualReach = (nextStepDetail.info.msg.type == "reach");
+                let predReach = (detail.reach[model] >= 0.5);
+                if(actualReach != predReach){
+                    return true;
+                }
+            }
+            // Kan
+            if("kan" in detail){
+                let actualKan = (detail.info.msg.real_dahai == "?");
+                let predKan = (detail.kan[model][0] < 0.5);
+                if(actualKan && predKan){
+                    return false;
+                }
+                if(actualKan != predKan){
+                    return true;
+                }
+            }
+            // Dahai
+            return detail.info.msg.real_dahai != null && detail.info.msg.real_dahai != detail.info.msg.pred_dahai[model];
         }else if(msgType=="dahai" && "huro" in detail){
+            // No action required
             if(!(selfActor.toString() in detail.huro)) return false;
+            // endgame
+            if(!nextStepDetail) return false;
+            // Otherwise
+            function argmax(obj){
+                let maxVal = -1;
+                let maxArg = null
+                for(let key in obj){
+                    if(obj[key] > maxVal){
+                        maxVal = obj[key];
+                        maxArg = key;
+                    }
+                }
+                return maxArg;
+            }
+            let predHuroType = argmax(detail.huro[selfActor][model]);
+            let nextMsgType = nextStepDetail.info.msg.type;
+            if(nextMsgType == "tsumo"){
+                // Skipped
+                return predHuroType != 0;
+            }else if(nextMsgType == "chi"){
+                return predHuroType != nextStepDetail.info.msg.kind;
+            }else{
+                // Other pon kang
+                if(nextStepDetail.info.msg.actor != selfActor){
+                    return false;
+                }
+                return predHuroType != nextStepDetail.info.msg.kind;
+            }
         }
         return false;
     }
@@ -184,7 +239,7 @@
                     }else{
                         do{
                             step--;
-                        }while(step > 0 && !isDiff(pred[kyoku][step], selfActor, model));
+                        }while(step > 0 && !isDiff(pred[kyoku][step], selfActor, model, step+1 < pred[kyoku].length ? pred[kyoku][step+1] : null));
                     };
                     break;
                 case '< 前自':
@@ -216,7 +271,7 @@
                     }else{
                         do{
                             step++;
-                        }while(step < pred[kyoku].length && !isDiff(pred[kyoku][step], selfActor, model));
+                        }while(step < pred[kyoku].length && !isDiff(pred[kyoku][step], selfActor, model, step+1 < pred[kyoku].length ? pred[kyoku][step+1] : null));
                     };
                     break;
                 case '次自 >':
