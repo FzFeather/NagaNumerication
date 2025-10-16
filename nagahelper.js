@@ -12,10 +12,6 @@
 
 (function() {
     'use strict';
-    const haiT = ["1m","2m","3m","4m","5m","6m","7m","8m","9m",
-                 "1p","2p","3p","4p","5p","6p","7p","8p","9p",
-                 "1s","2s","3s","4s","5s","6s","7s","8s","9s",
-                 "東","南","西","北","白","發","中"];
     var kyoku = 0;
     var step = 0;
     // const callback = (mutationList, observer) => {
@@ -25,18 +21,10 @@
     //     }
     // };
     var app = document.getElementById("app");
-    // Create an observer instance linked to the callback function
-    // const observer = new MutationObserver(callback);
-    // const config = { attributes: false, childList: true, subtree: false };
-    // observer.observe(app, config);
-    //window.addEventListener('DOMContentLoaded', function(event){
+
     waitForKeyElements("script", function(event){
-        //if(event.key != 'S' && event.key != 's') return;
-        console.log("DOM fully loaded and parsed");
         var app = document.getElementById("app");
         let infoDiv = document.getElementById('extraInfoDiv');
-        console.log(app);
-        console.log(infoDiv);
         if(!infoDiv){
             infoDiv = document.createElement("div");
             infoDiv.style.display="none";
@@ -159,6 +147,16 @@
         }
         return indexes;
     }
+    function idToHai(id){
+        const haiT = ["1m","2m","3m","4m","5m","6m","7m","8m","9m",
+                      "1p","2p","3p","4p","5p","6p","7p","8p","9p",
+                      "1s","2s","3s","4s","5s","6s","7s","8s","9s",
+                      "N","S","W","N","P","F","C"];
+        const imgElement = document.createElement('img');
+        imgElement.style.width = "2rem";
+        imgElement.src = "https://naga.dmv.nico/static/img/hai/"+ haiT[id] +".png";
+        return imgElement;
+    }
     function updateExtraInfoTable(){
         let infoTable = document.getElementById('extraInfoTable');
         if(!infoTable) return;
@@ -171,14 +169,24 @@
         if(msgType == "tsumo" || msgType=="chi" || msgType=="pon" || msgType=="ankan" || msgType=="kakan" || msgType=="daiminkan"){
             if(detail.info.msg.actor != selfActor) return;
             let sortedIndex = indexSort(detail.dahai_pred[model]);
+            // Reach
+            if("reach" in detail){
+                let tr = infoTable.insertRow(-1);
+                let haiTd = tr.insertCell(0);
+                haiTd.appendChild(document.createTextNode("立直"));
+                let prefTd = tr.insertCell(1);
+                prefTd.style['text-align'] = "right";
+                prefTd.appendChild(document.createTextNode((detail.reach[model]*100).toFixed(2)+"%"));
+            }
             for(let h of sortedIndex){
                 let predValue = detail.dahai_pred[model][h];
                 if(predValue == 0) break;
                 let tr = infoTable.insertRow(-1);
                 let haiTd = tr.insertCell(0);
-                haiTd.appendChild(document.createTextNode(haiT[h]));
+                haiTd.appendChild(idToHai(h));
                 let prefTd = tr.insertCell(1);
                 prefTd.style['text-align'] = "right";
+                prefTd.style['vertical-align'] = "middle";
                 prefTd.appendChild(document.createTextNode((predValue/100.0).toFixed(2)+"%"));
             }
         }else if(msgType == "dahai" && "huro" in detail){
