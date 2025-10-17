@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      2025-10-16
 // @description  Show NAGA numerical information
-// @author       You
+// @author       FzFeather
 // @match        https://naga.dmv.nico/htmls/*
 // @icon         https://naga.dmv.nico/static/img/naga.png
 // @grant        none
@@ -14,12 +14,6 @@
     'use strict';
     var kyoku = 0;
     var step = 0;
-    // const callback = (mutationList, observer) => {
-    //     for (const mutation of mutationList) {
-    //         if (mutation.type === "childList") {
-    //         }
-    //     }
-    // };
     var app = document.getElementById("app");
 
     waitForKeyElements("script", function(event){
@@ -45,7 +39,7 @@
     }, false);
     function isSelf(detail, selfActor){
         let msgType = detail.info.msg.type;
-        if(msgType=="tsumo" || msgType=="chi" || msgType=="pon" || msgType=="ankan" || msgType=="kakan" || msgType=="daiminkan"){
+        if(msgType=="tsumo" || msgType=="chi" || msgType=="pon"){
             return detail.info.msg.actor == selfActor;
         }else if(msgType=="dahai" && "huro" in detail){
             return selfActor.toString() in detail.huro;
@@ -55,7 +49,7 @@
     function isDiff(detail, selfActor, model, nextStepDetail){
         if(detail.info.msg.actor != selfActor) return false;
         let msgType = detail.info.msg.type;
-        if(msgType=="tsumo" || msgType=="chi" || msgType=="pon" || msgType=="ankan" || msgType=="kakan" || msgType=="daiminkan"){
+        if(msgType=="tsumo" || msgType=="chi" || msgType=="pon"){
             // Reach
             if("reach" in detail){
                 let actualReach = (nextStepDetail.info.msg.type == "reach");
@@ -112,20 +106,16 @@
         return false;
     }
     function huroTranslate(method, hai){
+        let n = parseInt(hai.charAt(0));
+        let t = hai.charAt(1);
         if(method == "0"){
             return "跳過";
         }else if(method == "1"){
-            let n = parseInt(hai.charAt(0));
-            let t = hai.charAt(1);
-            return (n+1).toString()+(n+2).toString()+t+"吃";
+            return idToHai((n+1).toString()+t)+idToHai((n+2).toString()+t)+"吃";
         }else if(method == "2"){
-            let n = parseInt(hai.charAt(0));
-            let t = hai.charAt(1);
-            return (n-1).toString()+(n+1).toString()+t+"吃";
+            return idToHai((n-1).toString()+t)+idToHai((n+1).toString()+t)+"吃";
         }else if(method == "3"){
-            let n = parseInt(hai.charAt(0));
-            let t = hai.charAt(1);
-            return (n-2).toString()+(n-1).toString()+t+"吃";
+            return idToHai((n-2).toString()+t)+idToHai((n-1).toString()+t)+"吃";
         }else if(method == "4"){
             return "碰";
         }else if(method == "5"){
@@ -147,14 +137,18 @@
         }
         return indexes;
     }
-    function idToHai(id){
-        const haiT = ["1m","2m","3m","4m","5m","6m","7m","8m","9m",
+    function idToHai(idOrStr){
+        const paiT = ["1m","2m","3m","4m","5m","6m","7m","8m","9m",
                       "1p","2p","3p","4p","5p","6p","7p","8p","9p",
                       "1s","2s","3s","4s","5s","6s","7s","8s","9s",
                       "N","S","W","N","P","F","C"];
+        let paiName = idOrStr;
+        if(/^\d+$/.test(idOrStr)){
+            paiName = paiT[idOrStr];
+        }
         const imgElement = document.createElement('img');
         imgElement.style.width = "2rem";
-        imgElement.src = "https://naga.dmv.nico/static/img/hai/"+ haiT[id] +".png";
+        imgElement.src = "https://naga.dmv.nico/static/img/hai/"+ paiName +".png";
         return imgElement;
     }
     function updateExtraInfoTable(){
@@ -177,6 +171,15 @@
                 let prefTd = tr.insertCell(1);
                 prefTd.style['text-align'] = "right";
                 prefTd.appendChild(document.createTextNode((detail.reach[model]*100).toFixed(2)+"%"));
+            }
+            // Kan
+            if("kan" in detail){
+                let tr = infoTable.insertRow(-1);
+                let haiTd = tr.insertCell(0);
+                haiTd.appendChild(document.createTextNode("檟"));
+                let prefTd = tr.insertCell(1);
+                prefTd.style['text-align'] = "right";
+                prefTd.appendChild(document.createTextNode((100.0-detail.kan[model][0]*100).toFixed(2)+"%"));
             }
             for(let h of sortedIndex){
                 let predValue = detail.dahai_pred[model][h];
