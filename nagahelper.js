@@ -36,6 +36,14 @@
             app.style.width = "";
             infoDiv.style.display="none";
         }
+        app.children[0].children[0].addEventListener('wheel', function(event){
+            if(event.deltaY < 0){
+                stepDecrement();
+            }else{
+                stepIncrement();
+            }
+            updateExtraInfoTable();
+        });
     }, false);
     function isSelf(detail, selfActor){
         let msgType = detail.info.msg.type;
@@ -108,20 +116,30 @@
     function huroTranslate(method, hai){
         let n = parseInt(hai.charAt(0));
         let t = hai.charAt(1);
+        let span = document.createElement('span');
         if(method == "0"){
-            return "跳過";
+            return document.createTextNode("跳過");
         }else if(method == "1"){
-            return idToHai((n+1).toString()+t)+idToHai((n+2).toString()+t)+"吃";
+            span.appendChild(idToHai((n+1).toString()+t));
+            span.appendChild(idToHai((n+2).toString()+t));
+            span.appendChild(document.createTextNode("吃"));
+            return span
         }else if(method == "2"){
-            return idToHai((n-1).toString()+t)+idToHai((n+1).toString()+t)+"吃";
+            span.appendChild(idToHai((n-1).toString()+t));
+            span.appendChild(idToHai((n+1).toString()+t));
+            span.appendChild(document.createTextNode("吃"));
+            return span
         }else if(method == "3"){
-            return idToHai((n-2).toString()+t)+idToHai((n-1).toString()+t)+"吃";
+            span.appendChild(idToHai((n-2).toString()+t));
+            span.appendChild(idToHai((n-1).toString()+t));
+            span.appendChild(document.createTextNode("吃"));
+            return span
         }else if(method == "4"){
-            return "碰";
+            return document.createTextNode("碰");
         }else if(method == "5"){
-            return "槓";
+            return document.createTextNode("槓");
         }
-        return '?';
+        return document.createTextNode("?");
     }
     function indexSort(test){
         var test_with_index = [];
@@ -141,7 +159,7 @@
         const paiT = ["1m","2m","3m","4m","5m","6m","7m","8m","9m",
                       "1p","2p","3p","4p","5p","6p","7p","8p","9p",
                       "1s","2s","3s","4s","5s","6s","7s","8s","9s",
-                      "N","S","W","N","P","F","C"];
+                      "E","S","W","N","P","F","C"];
         let paiName = idOrStr;
         if(/^\d+$/.test(idOrStr)){
             paiName = paiT[idOrStr];
@@ -157,10 +175,11 @@
         let selfActor = document.querySelectorAll('select')[0].value;
         let model = document.querySelectorAll('select')[2].value;
         infoTable.innerHTML="";
+        if(kyoku >= pred.length) return;
         if(step >= pred[kyoku].length) return;
         let detail = pred[kyoku][step];
         let msgType = detail.info.msg.type;
-        if(msgType == "tsumo" || msgType=="chi" || msgType=="pon" || msgType=="ankan" || msgType=="kakan" || msgType=="daiminkan"){
+        if(msgType == "tsumo" || msgType=="chi" || msgType=="pon"){
             if(detail.info.msg.actor != selfActor) return;
             let sortedIndex = indexSort(detail.dahai_pred[model]);
             // Reach
@@ -200,31 +219,44 @@
                 if(predValue == 0) break;
                 let tr = infoTable.insertRow(-1);
                 let haiTd = tr.insertCell(0);
-                haiTd.appendChild(document.createTextNode(huroTranslate(h, detail.info.msg.pai)));
+                haiTd.appendChild(huroTranslate(h, detail.info.msg.pai));
                 let prefTd = tr.insertCell(1);
                 prefTd.style['text-align'] = "right";
                 prefTd.appendChild(document.createTextNode((predValue*100.0).toFixed(2)+"%"));
             }
         }
     }
-    app.addEventListener('wheel', function(event){
-        if(event.deltaY < 0){
-            if(step <= 0){
-                kyoku--;
-                step = pred[kyoku].length;
+    function stepDecrement(){
+        if(step <= 0){
+            kyoku--;
+            if(kyoku < 0){
+                kyoku = pred.length;
+                step = 1;
             }else{
-                step--;
+                step = pred[kyoku].length;
             }
         }else{
-            if(step >= pred[kyoku].length){
-                step = 0;
-                kyoku++;
+            step--;
+        }
+        console.log(kyoku, step);
+    }
+    function stepIncrement(){
+        if(kyoku == pred.length){
+            if(step == 0){
+                step = 1;
             }else{
-                step++;
+                kyoku = 0;
+                step = 0;
+            }
+        }else{
+            step++;
+            if(step > pred[kyoku].length){
+                kyoku++;
+                step = 0;
             }
         }
-        updateExtraInfoTable();
-    });
+        console.log(kyoku, step);
+    }
     app.addEventListener('click', function(event){
         if(event.target.nodeName == "BUTTON"){
             let selfActor = document.querySelectorAll('select')[0].value;
@@ -233,20 +265,17 @@
             switch(title){
                 case '< 前局':
                     kyoku--;
-                    step=0;
+                    if(kyoku < 0){
+                        kyoku = pred.length;
+                    }
+                    step = 0;
                     break;
                 case '< 前':
-                    if(step <= 0){
-                        kyoku--;
-                        step = pred[kyoku].length;
-                    }else{
-                        step--;
-                    }
+                    stepDecrement();
                     break;
                 case '< 前違':
-                    if(step <= 0){
-                        kyoku--;
-                        step = pred[kyoku].length;
+                    if(kyoku == pred.length || step <= 0){
+                        stepDecrement();
                     }else{
                         do{
                             step--;
@@ -254,9 +283,8 @@
                     };
                     break;
                 case '< 前自':
-                    if(step <= 0){
-                        kyoku--;
-                        step = pred[kyoku].length;
+                    if(kyoku == pred.length || step <= 0){
+                        stepDecrement();
                     }else{
                         do{
                             step--;
@@ -266,19 +294,16 @@
                 case '次局 >':
                     kyoku++;
                     step=0;
-                    break;
-                case '次 >':
-                    if(step >= pred[kyoku].length){
-                        step = 0;
-                        kyoku++;
-                    }else{
-                        step++;
+                    if(kyoku > pred.length){
+                        kyoku = 0;
                     }
                     break;
+                case '次 >':
+                    stepIncrement();
+                    break;
                 case '次違 >':
-                    if(step >= pred[kyoku].length){
-                        step = 0;
-                        kyoku++;
+                    if(kyoku == pred.length || step >= pred[kyoku].length){
+                        stepIncrement();
                     }else{
                         do{
                             step++;
